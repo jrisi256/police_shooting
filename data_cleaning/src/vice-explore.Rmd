@@ -1,0 +1,56 @@
+---
+title: "Exploring the Vice data"
+output: html_document
+---
+
+## Packages
+
+```{r}
+library(here)
+library(dplyr)
+library(readr)
+library(ggplot2)
+```
+
+## Read in the data
+
+Columns in common:
+
+* Date
+* Number of Subjects (It's always 1 in vice subject dataset).
+* Fatal
+* Subject Armed
+* Notes
+* Subject Race
+* Subject Gender
+* Subject Age
+* Nature of Stop
+* Number of Shots
+* Number of Officers
+* Officer Race
+* Officer Gender
+* Department
+* Full Narrative
+* City
+
+Columns unique to vice incidents:
+
+* year, month, day: turns the date into 3 columns.
+* fdate: turns dates which are missing month and/or day into a fixed date.
+* b, l, w, and a: Total number of subjects in each racial category.
+* tr: Total number of racial categories identified. Mostly agrees with Number of Subjects, but it will differ if racial categories are missing.
+* AvgAge: The average age of the subjects.
+* VA: Binary variable indicating if any subject was armed or not.
+* F: Binary variable indicating if any subject died.
+* nshots: Total number of shots. Turns NumberOfShots into a continuous, numeric variable.
+* sit: Categorizes Nature of Stop into a more manageable set of categories.
+* other: Was a weapon other than a knife/gun/replica weapon used? Taken from notes and narrative.
+* knife: Was a knife used? Taken from notes and narrative.
+* replica: Was a replica weapon used? Taken from notes and narrative.
+* weapon: What weapon was used? Taken from notes and narrative.
+
+```{r}
+vice_incident <- read_csv(here("data_cleaning", "data", "vice-incident.csv"))
+vice_subject <- read_csv(here("data_cleaning", "data", "vice-subject.csv"))
+```
+
