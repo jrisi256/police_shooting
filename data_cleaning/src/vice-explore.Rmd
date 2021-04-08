@@ -9,7 +9,10 @@ output: html_document
 library(here)
 library(dplyr)
 library(readr)
+library(purrr)
 library(ggplot2)
+library(stringr)
+library(lubridate)
 ```
 
 ## Read in the data
@@ -19,7 +22,7 @@ Columns in common:
 * Date
 * Number of Subjects (It's always 1 in vice subject dataset).
 * Fatal
-* Subject Armed
+* Subject Armed (with a gun)
 * Notes
 * Subject Race
 * Subject Gender
@@ -54,3 +57,52 @@ vice_incident <- read_csv(here("data_cleaning", "data", "vice-incident.csv"))
 vice_subject <- read_csv(here("data_cleaning", "data", "vice-subject.csv"))
 ```
 
+## Fix up the dates
+
+```{r}
+a <- 
+    vice_subject %>%
+    mutate(year = case_when(nchar(Date) == 4 ~ year(ymd(paste0(Date, "-01-01"))),
+                            str_detect(Date, "-") & nchar(Date) == 7 ~ year(ymd(paste0(Date, "-01"))),
+                            as.numeric(str_sub(Date, 1, 2)) >= 13 ~ year(dmy(Date)),
+                            T ~ year(mdy(Date))),
+           month = case_when(nchar(Date) == 4 ~ NA_real_,
+                             str_detect(Date, "-") & nchar(Date) == 7 ~ month(ymd(paste0(Date, "-01"))),
+                             as.numeric(str_sub(Date, 1, 2)) >= 13 ~ month(dmy(Date)),
+                             T ~ month(mdy(Date))),
+           day = case_when(nchar(Date) == 4 ~ NA_real_,
+                           str_detect(Date, "-") & nchar(Date) == 7 ~ NA_real_,
+                           as.numeric(str_sub(Date, 1, 2)) >= 13 ~ as.numeric(day(dmy(Date))),
+                           T ~ as.numeric(day(mdy(Date)))))
+
+           fixedNrShots = str_replace_all(NumberOfShots, "[a-zA-Z\\s>/=]", ""),
+           fixedNrShots = map_dbl(str_split(NumberOfShots, ";"),
+                                  function(vctr) {sum(as.numeric(vctr))}),
+           situation =
+               case_when(str_detect(tolower(NatureOfStop), "suicid") ~ "suicide",
+                         str_detect(tolower(NatureOfStop), "mental") ~ "mentalhealth",
+                         str_detect(tolower(NatureOfStop), "man with a gun|weapon|armed") ~ "weapon",
+                         str_detect(tolower(NatureOfStop), "shots|shoot") ~ "shooting",
+                         str_detect(tolower(NatureOfStop), "narcots|drugs|drug") ~ "drugs",
+                         str_detect(tolower(NatureOfStop), "off duty|off-duty") ~ "offduty",
+                         str_detect(tolower(NatureOfStop), "domestic") ~ "domesticViolence",
+                         str_detect(tolower(NatureOfStop), "crime|assault|stabbing") ~ "crime",
+                         str_detect(tolower(NatureOfStop), "call for service|radio call") ~ "call",
+                         str_detect(tolower(NatureOfStop), "suspicious|welfare|proactive|investigation|pursuit") ~ "suspicious",
+                         str_detect(tolower(NatureOfStop), "stolen vehicle|stolen car") ~ "stolenvehicle",
+                         str_detect(tolower(NatureOfStop), "car|vehicle|speeding|traffic") ~ "traffic",
+                         str_detect(tolower(NatureOfStop), "suspect|wanted|warrant") ~ "suspect",
+                         str_detect(tolower(NatureOfStop), "robbery|burglary|theft|shoplifting|robbey") ~ "robbery",
+                         T ~ "misc."),
+           notesAndNarrative = paste(Notes, FullNarrative, sep = ". "),
+           weapon =
+               case_when(str_detect(notesAndNarrative,
+                                    paste0("vehicle|rock|taser|blunt|pipe|misc weapon|,
+                                           screwdriver|crowbar|shears|cane|pole|rod|,
+                                           scissors|club|vehicle as weapon|baseball bat")) ~ "other",
+                         str_detect(notesAndNarrative, "replica|simulated|bb|imitation|paintball") ~ "replica",
+                         str_detect(notesAndNarrative, "knife|knives|sword| ax|hatchet|machete|blade") ~ "knife",
+                         SubjectArmed == "Y" ~ "gun")) %>%
+    select(fixedDate, Date, year, month, day, NumberOfShots, fixedNrShots,
+           situation, NatureOfStop, weapon, notesAndNarrative, SubjectArmed)
+```

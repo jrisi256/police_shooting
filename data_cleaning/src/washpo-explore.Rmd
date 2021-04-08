@@ -19,12 +19,8 @@ library(lubridate)
 
 ```{r}
 washpo <-
-    read_csv(here("data_cleaning", "data", "washpo.csv")) %>%
-    select(-id, -name, -longitude, -latitude, -is_geocoding_exact, -city) %>%
-    mutate(year = year(date),
-           month = month(date),
-           day = day(date)) %>%
-    select(-date)
+    read_csv(here("data_cleaning", "output", "washpo-clean.csv")) %>%
+    select(-id, -name, -longitude, -latitude, -is_geocoding_exact, -city, -date)
 ```
 
 ## Distribution of victim age
@@ -152,8 +148,7 @@ washpo %>%
     mutate(prcnt = n / sum(n)) %>%
     ungroup() %>%
     ggplot(aes(x = reorder(state, prcnt), y = prcnt)) +
-    geom_bar(stat = "identity") +
-    facet_wrap(~race, scales = "free_y", ncol = 1) +
+    geom_bar(stat = "identity", aes(fill = race)) +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 290, hjust = 0))
 ```
@@ -188,17 +183,8 @@ washpo %>%
 ## Distribution of victims by if they were aremed or not
 
 ```{r}
-armedNewDf <-
-    washpo %>%
-    select(armed) %>%
-    count(armed) %>%
-    mutate(prcnt = n / sum(n),
-           armedNew = if_else(prcnt < 0.01, "other", armed))
-
-armedNewDf %>%
-    group_by(armedNew) %>%
-    summarise(n = sum(n)) %>%
-    ungroup() %>%
+washpo %>%
+    count(armedNew) %>%
     ggplot(aes(x = reorder(armedNew, n), y = n)) +
     geom_bar(stat = "identity") +
     theme_bw() +
@@ -211,9 +197,7 @@ No big differences in types of weapons used it seems. Although Black-Americans a
 
 ```{r}
 washpo %>%
-    select(armed, race) %>%
     filter(race %in% c("W", "B", "H")) %>%
-    inner_join(select(armedNewDf, armed, armedNew), by = "armed") %>%
     count(armedNew, race) %>%
     group_by(race) %>%
     mutate(prcnt = n / sum(n)) %>%
