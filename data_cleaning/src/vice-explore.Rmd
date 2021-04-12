@@ -1,6 +1,6 @@
 ---
 title: "Exploring the Vice data"
-output: html_document
+output: pdf_document
 ---
 
 ## Packages
@@ -10,6 +10,7 @@ library(here)
 library(dplyr)
 library(readr)
 library(purrr)
+library(tidyr)
 library(ggplot2)
 library(stringr)
 library(lubridate)
@@ -53,56 +54,288 @@ Columns unique to vice incidents:
 * weapon: What weapon was used? Taken from notes and narrative.
 
 ```{r}
-vice_incident <- read_csv(here("data_cleaning", "data", "vice-incident.csv"))
-vice_subject <- read_csv(here("data_cleaning", "data", "vice-subject.csv"))
+load(here("create_test_train", "output", "trainTestRace.RData"))
+load(here("create_test_train", "output", "trainTestFatal.RData"))
+viceRace <- listSamples[["viceDgHM"]]
+viceFatal <- listFatalSamples[["fatalHM"]]
 ```
 
-## Fix up the dates
+## Bar charts for demographics and fatal vs. non-fatal shootings
 
 ```{r}
-# a <- 
-#     vice_subject %>%
-#     mutate(year = case_when(nchar(Date) == 4 ~ year(ymd(paste0(Date, "-01-01"))),
-#                             str_detect(Date, "-") & nchar(Date) == 7 ~ year(ymd(paste0(Date, "-01"))),
-#                             as.numeric(str_sub(Date, 1, 2)) >= 13 ~ year(dmy(Date)),
-#                             T ~ year(mdy(Date))),
-#            month = case_when(nchar(Date) == 4 ~ NA_real_,
-#                              str_detect(Date, "-") & nchar(Date) == 7 ~ month(ymd(paste0(Date, "-01"))),
-#                              as.numeric(str_sub(Date, 1, 2)) >= 13 ~ month(dmy(Date)),
-#                              T ~ month(mdy(Date))),
-#            day = case_when(nchar(Date) == 4 ~ NA_real_,
-#                            str_detect(Date, "-") & nchar(Date) == 7 ~ NA_real_,
-#                            as.numeric(str_sub(Date, 1, 2)) >= 13 ~ as.numeric(day(dmy(Date))),
-#                            T ~ as.numeric(day(mdy(Date)))))
-# 
-#            fixedNrShots = str_replace_all(NumberOfShots, "[a-zA-Z\\s>/=]", ""),
-#            fixedNrShots = map_dbl(str_split(NumberOfShots, ";"),
-#                                   function(vctr) {sum(as.numeric(vctr))}),
-#            situation =
-#                case_when(str_detect(tolower(NatureOfStop), "suicid") ~ "suicide",
-#                          str_detect(tolower(NatureOfStop), "mental") ~ "mentalhealth",
-#                          str_detect(tolower(NatureOfStop), "man with a gun|weapon|armed") ~ "weapon",
-#                          str_detect(tolower(NatureOfStop), "shots|shoot") ~ "shooting",
-#                          str_detect(tolower(NatureOfStop), "narcots|drugs|drug") ~ "drugs",
-#                          str_detect(tolower(NatureOfStop), "off duty|off-duty") ~ "offduty",
-#                          str_detect(tolower(NatureOfStop), "domestic") ~ "domesticViolence",
-#                          str_detect(tolower(NatureOfStop), "crime|assault|stabbing") ~ "crime",
-#                          str_detect(tolower(NatureOfStop), "call for service|radio call") ~ "call",
-#                          str_detect(tolower(NatureOfStop), "suspicious|welfare|proactive|investigation|pursuit") ~ "suspicious",
-#                          str_detect(tolower(NatureOfStop), "stolen vehicle|stolen car") ~ "stolenvehicle",
-#                          str_detect(tolower(NatureOfStop), "car|vehicle|speeding|traffic") ~ "traffic",
-#                          str_detect(tolower(NatureOfStop), "suspect|wanted|warrant") ~ "suspect",
-#                          str_detect(tolower(NatureOfStop), "robbery|burglary|theft|shoplifting|robbey") ~ "robbery",
-#                          T ~ "misc."),
-#            notesAndNarrative = paste(Notes, FullNarrative, sep = ". "),
-#            weapon =
-#                case_when(str_detect(notesAndNarrative,
-#                                     paste0("vehicle|rock|taser|blunt|pipe|misc weapon|,
-#                                            screwdriver|crowbar|shears|cane|pole|rod|,
-#                                            scissors|club|vehicle as weapon|baseball bat")) ~ "other",
-#                          str_detect(notesAndNarrative, "replica|simulated|bb|imitation|paintball") ~ "replica",
-#                          str_detect(notesAndNarrative, "knife|knives|sword| ax|hatchet|machete|blade") ~ "knife",
-#                          SubjectArmed == "Y" ~ "gun")) %>%
-#     select(fixedDate, Date, year, month, day, NumberOfShots, fixedNrShots,
-#            situation, NatureOfStop, weapon, notesAndNarrative, SubjectArmed)
+viceRace %>%
+    select(c(!where(is.numeric)), -situation, -departmentFixed) %>%
+    pivot_longer(everything(),
+                 values_transform = list(value = as.character)) %>%
+    ggplot(aes(x = value)) +
+    geom_bar() +
+    facet_wrap(~name, scales = "free") +
+    theme_bw()
+```
+
+## Bar charts for situation and department
+
+```{r}
+map(list("situation", "departmentFixed"), function(df, column){
+    
+    df %>%
+        count(.data[[column]]) %>%
+        ggplot(aes(x = reorder(.data[[column]], n), y = n)) +
+        geom_bar(stat = "identity") +
+        theme_bw() +
+        coord_flip()
+    
+}, df = viceRace)
+```
+
+## Line charts for numerical variables
+
+```{r}
+viceRace %>%
+    select(c(where(is.numeric), -matches("^officer"))) %>%
+    pivot_longer(everything()) %>%
+    count(value, name) %>%
+    filter(!is.na(value)) %>%
+    ggplot(aes(x = value, y = n)) +
+    geom_line() +
+    geom_point() +
+    facet_wrap(~name, scales = "free") +
+    theme_bw()
+```
+
+## Bar charts for officer gender and race
+
+```{r}
+viceRace %>%
+    select(matches("^officer")) %>%
+    pivot_longer(everything()) %>%
+    group_by(name) %>%
+    summarise(officerSum = sum(value)) %>%
+    ungroup() %>%
+    mutate(group = if_else(str_detect(name, "Gender"), "gender", "race")) %>%
+    ggplot(aes(x = name, y = officerSum)) +
+    geom_bar(stat = "identity") +
+    facet_wrap(~group, scales = "free") +
+    theme_bw() +
+    coord_flip()
+```
+
+## Bar charts for demographics and fatal vs. non-fatal shootings by race
+
+* In terms of fatal shootings, Black-Americans, percentage-wise, suffer the least amount of fatal shootings while White Americans suffer the most fatal shootings, percentage-wise. This isn't what I would have expected beforehand.
+* Age distributions looks pretty similar.
+* White Americans seem the most likely to be armed followed by Hispanics than by Black Americans. However uncertainty is lowest for White Americans increasing for Hispanics and increasing even more for Black Americans.
+* The gender breakdowns are roughly the same across racial groups. Uncertainty is lowest for White Americans and higher for Hispanics and is the highest for Black Americans.
+
+```{r}
+categoriesRace <- 
+    viceRace %>%
+    select(c(!where(is.numeric)), -situation, -departmentFixed) %>%
+    pivot_longer(-SubjectRace) %>%
+    filter(SubjectRace %in% c("W", "L", "B")) %>%
+    count(SubjectRace, name, value) %>%
+    group_by(SubjectRace, name) %>%
+    mutate(prcnt = n / sum(n)) %>%
+    ungroup()
+
+map(unique(categoriesRace$name),
+    function(df, column) {
+        df %>%
+            filter(name == column) %>%
+            ggplot(aes(x = value, y = prcnt)) +
+            geom_bar(stat = "identity") +
+            facet_wrap(~name+SubjectRace, scales = "free_x") +
+            theme_bw()},
+    df = categoriesRace)
+```
+
+## Bar charts for demographics by fatal vs. non-fatal shootings
+
+* Interestingly shootings become more and more fatal as one gets older.
+* Surprisingly roughly the same proportion of armed vs. non-armed subjects are fatally shot.
+* Roughly equal proportions of men and women are fatally shot.
+* Whites are fatally shot at moderately higher proportions vs. Black-Americans and Hispanics.
+
+```{r}
+categoriesFatal <- 
+    viceRace %>%
+    select(c(!where(is.numeric)), -situation, -departmentFixed) %>%
+    pivot_longer(-Fatal) %>%
+    filter(Fatal %in% c("F", "N")) %>%
+    count(Fatal, name, value) %>%
+    group_by(name, value) %>%
+    mutate(prcnt = n / sum(n)) %>%
+    ungroup()
+
+map(unique(categoriesFatal$name),
+    function(df, column) {
+        df %>%
+            filter(name == column) %>%
+            ggplot(aes(x = value, y = prcnt)) +
+            geom_bar(stat = "identity", position = "dodge", aes(fill = Fatal)) +
+            facet_wrap(~name, scales = "free_x") +
+            theme_bw()},
+    df = categoriesFatal)
+```
+
+## Bar charts for situation and department by race
+
+```{r}
+temp <-
+    viceRace %>%
+    mutate(departmentFixed =
+               str_replace_all(departmentFixed, "Police|Department", ""))
+
+map(list("situation", "departmentFixed"), function(df, column){
+    
+    df %>%
+        count(SubjectRace, .data[[column]]) %>%
+        group_by(SubjectRace) %>%
+        mutate(prcnt = n / sum(n)) %>%
+        ungroup() %>%
+        ggplot(aes(x = reorder(.data[[column]], prcnt), y = prcnt)) +
+        geom_bar(stat = "identity") +
+        facet_wrap(~SubjectRace) +
+        theme_bw() +
+        coord_flip()
+    
+}, df = temp)
+
+temp %>%
+    count(SubjectRace, departmentFixed) %>%
+    group_by(departmentFixed) %>%
+    mutate(prcnt = n / sum(n)) %>%
+    ungroup() %>%
+    ggplot(aes(x = reorder(departmentFixed, prcnt), y = prcnt)) +
+    geom_bar(stat = "identity", aes(fill = SubjectRace)) +
+    theme_bw() +
+    coord_flip()
+```
+
+## Bar charts for situation and department by non-fatal vs. fatal shooting
+
+```{r}
+temp <-
+    viceFatal %>%
+    mutate(departmentFixed =
+               str_replace_all(departmentFixed, "Police|Department", ""))
+
+map(list("situation", "departmentFixed"), function(df, column){
+    
+    df %>%
+        count(Fatal, .data[[column]]) %>%
+        group_by(Fatal) %>%
+        mutate(prcnt = n / sum(n)) %>%
+        ungroup() %>%
+        ggplot(aes(x = reorder(.data[[column]], prcnt), y = prcnt)) +
+        geom_bar(stat = "identity", aes(fill = Fatal), position = "dodge") +
+        theme_bw() +
+        coord_flip()
+    
+}, df = temp)
+
+temp %>%
+    count(Fatal, departmentFixed) %>%
+    group_by(departmentFixed) %>%
+    mutate(prcnt = n / sum(n)) %>%
+    ungroup() %>%
+    ggplot(aes(x = reorder(departmentFixed, prcnt), y = prcnt)) +
+    geom_bar(stat = "identity", aes(fill = Fatal)) +
+    theme_bw() +
+    coord_flip()
+```
+
+## Line charts for numerical variables by race
+
+```{r}
+categoriesRace <-
+    viceRace %>%
+    select(c(where(is.numeric), -matches("^officer")), SubjectRace) %>%
+    pivot_longer(-SubjectRace) %>%
+    count(SubjectRace, value, name) %>%
+    group_by(SubjectRace, name) %>%
+    mutate(prcnt = n / sum(n)) %>%
+    filter(!is.na(value))
+
+map(unique(categoriesRace$name),
+    function(df, column) {
+        df %>%
+            filter(name == column) %>%
+            ggplot(aes(x = value, y = prcnt)) +
+            geom_line() +
+            geom_point() +
+            facet_wrap(~name+SubjectRace, scales = "free") +
+            theme_bw()},
+    df = categoriesRace)
+```
+
+## Line charts for numerical variables by fatal vs. non-fatal shooting
+
+```{r}
+categoriesFatal <-
+    viceFatal %>%
+    select(c(where(is.numeric), -matches("^officer")), Fatal) %>%
+    pivot_longer(-Fatal) %>%
+    count(Fatal, value, name) %>%
+    group_by(Fatal, name) %>%
+    mutate(prcnt = n / sum(n)) %>%
+    filter(!is.na(value))
+
+map(unique(categoriesFatal$name),
+    function(df, column) {
+        df %>%
+            filter(name == column) %>%
+            ggplot(aes(x = value, y = n)) +
+            geom_line(aes(color = Fatal, group = Fatal))+
+            geom_point(aes(color = Fatal)) +
+            #facet_wrap(~name+Fatal, scales = "free") +
+            theme_bw() +
+            labs(title = column)},
+    df = categoriesFatal)
+```
+
+## Bar charts for officer gender and race BY subject race
+
+* Female officers, proportionally, shoot slightly more Black subjects vs. male officers.
+* All racial officer groups proportionally shoot Black offenders the most (except for the racial other category).
+    * Interestingly though, for Black American officers, nearly 80% of all suspects shot at were Black.
+    * A similar phenomenon occurs for Latino offficers where the proportion of supsects shot at dramatically increases for Latino suspects.
+
+```{r}
+viceRace %>%
+    select(c(matches("^officer")), SubjectRace) %>%
+    pivot_longer(-SubjectRace) %>%
+    group_by(SubjectRace, name) %>%
+    summarise(officerSum = sum(value)) %>%
+    group_by(name) %>%
+    mutate(prcnt = officerSum / sum(officerSum)) %>%
+    ungroup() %>%
+    mutate(group = if_else(str_detect(name, "Gender"), "gender", "race")) %>%
+    ggplot(aes(x = name, y = prcnt)) +
+    geom_bar(stat = "identity", position = "dodge", aes(fill = SubjectRace)) +
+    facet_wrap(~group, scales = "free") +
+    theme_bw() +
+    coord_flip()
+```
+
+## Bar charts for officer gender and race BY fatal vs. non-fatal shooting
+
+* Female officers have a slighlty, slightly lower proportion of shootings being fatal.
+* Minority police officers (Asian, Latino, Black-American) have smaller proportions of fatal shootings relative to White police officers.
+
+```{r}
+viceFatal %>%
+    select(c(matches("^officer")), Fatal) %>%
+    pivot_longer(-Fatal) %>%
+    group_by(Fatal, name) %>%
+    summarise(officerSum = sum(value)) %>%
+    group_by(name) %>%
+    mutate(prcnt = officerSum / sum(officerSum)) %>%
+    ungroup() %>%
+    mutate(group = if_else(str_detect(name, "Gender"), "gender", "race")) %>%
+    ggplot(aes(x = name, y = prcnt)) +
+    geom_bar(stat = "identity", position = "dodge", aes(fill = Fatal)) +
+    facet_wrap(~group, scales = "free") +
+    theme_bw() +
+    coord_flip()
 ```

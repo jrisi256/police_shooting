@@ -18,9 +18,8 @@ library(lubridate)
 ## Read in data
 
 ```{r}
-washpo <-
-    read_csv(here("data_cleaning", "output", "washpo-clean.csv")) %>%
-    select(-id, -name, -longitude, -latitude, -is_geocoding_exact, -city, -date)
+load(here("create_test_train", "output", "trainTestRace.RData"))
+washpo <- listSamples[["washpoDgHM"]]
 ```
 
 ## Distribution of victim age
@@ -58,11 +57,11 @@ map(c("W", "B", "H"),
     df = washpo)
 ```
 
-## Bar charts for categorical outcomes (not state, armed, or date)
+## Bar charts for categorical outcomes (not state, armedNew, or date)
 
 ```{r}
 washpo %>%
-    select(c(!where(is.numeric), -armed, -state, -day, -month, -year)) %>%
+    select(c(!where(is.numeric), -armedNew, -state, -day, -month, -year)) %>%
     pivot_longer(everything(),
                  values_transform = list(value = as.character)) %>%
     ggplot(aes(x = value)) +
@@ -74,7 +73,7 @@ washpo %>%
 ## Bar charts for categorical outcomes by race (not state, armed, or date)
 
 * Slightly more instances in which body cameras were used for Black and Hispanic victims vs. White victims.
-* White victims slightly more likely to be fleeing vs. Black and Hispanic victims.
+* White victims slightly more likely to not be fleeing vs. Black and Hispanic victims.
 * White victims slightly, slightly, less likely to be male vs. Black and Hispanic victims.
 * Manner of death is universally the same.
 * White victims moderately more likely to have a mental health history or signs of mental illness vs. Black and Hispanic victims.
@@ -83,7 +82,7 @@ washpo %>%
 ```{r}
 categoriesRace <- 
     washpo %>%
-    select(c(!where(is.numeric), -armed, -state, -day, -month, -year)) %>%
+    select(c(!where(is.numeric), -armedNew, -state, -day, -month, -year)) %>%
     pivot_longer(-race,
                  values_transform = list(value = as.character)) %>%
     filter(race %in% c("W", "H", "B")) %>%
