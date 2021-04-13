@@ -18,8 +18,8 @@ library(lubridate)
 ## Read in data
 
 ```{r}
-load(here("create_test_train", "output", "trainTestRace.RData"))
-washpo <- listSamples[["washpoDgHM"]]
+load(here("create_test_train", "output", "raceTrain.RData"))
+washpo <- raceTrain[["washpoDgHM"]]
 ```
 
 ## Distribution of victim age

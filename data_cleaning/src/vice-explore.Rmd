@@ -54,10 +54,10 @@ Columns unique to vice incidents:
 * weapon: What weapon was used? Taken from notes and narrative.
 
 ```{r}
-load(here("create_test_train", "output", "trainTestRace.RData"))
-load(here("create_test_train", "output", "trainTestFatal.RData"))
-viceRace <- listSamples[["viceDgHM"]]
-viceFatal <- listFatalSamples[["fatalHM"]]
+load(here("create_test_train", "output", "raceTrain.RData"))
+load(here("create_test_train", "output", "fatalTrain.RData"))
+viceRace <- raceTrain[["viceDgHM"]]
+viceFatal <- fatalTrain[["fatalHM"]]
 ```
 
 ## Bar charts for demographics and fatal vs. non-fatal shootings

@@ -75,7 +75,6 @@ viceDgHNm <-
 set.seed(420)
 
 listSamples <- list(washpoNdgBNm = washpoNdgBNm,
-                    washpoDgBNm = washpoDgBNm,
                     washpoDgBM = washpoDgBM,
                     washpoDgHM = washpoDgHM,
                     washpoDgHNm = washpoDgHNm,
@@ -85,7 +84,7 @@ listSamples <- list(washpoNdgBNm = washpoNdgBNm,
                     viceDgHM = viceDgHM,
                     viceDgHNm = viceDgHNm)
 
-listSource <- as.list(c(rep("washpo", 5), rep("vice", 5)))
+listSource <- as.list(c(rep("washpo", 4), rep("vice", 5)))
 
 listSplits <-
     pmap(list(listSamples, listSource), function(sample, source) {
@@ -135,9 +134,29 @@ listFatalSplits <-
         createDataPartition(sample[["Fatal"]], p = 0.8, list = F, times = 1)
     })
 
-######################################### Save Train/Test Splits for our data
-save(listSamples,
-     file = here("create_test_train", "output", "trainTestRace.RData"))
+#################################################### Create test/train splits
+raceTrain <-
+    pmap(list(listSamples, listSplits), function(sample, indices) {
+        sample[indices,]})
 
-save(listFatalSamples,
-     file = here("create_test_train", "output", "trainTestFatal.RData"))
+raceTest <-
+    pmap(list(listSamples, listSplits), function(sample, indices) {
+        sample[-indices,]})
+
+# We can do this because they have the same number of observations
+raceTrain[["washpoDgBNm"]] <- washpoDgBNm[listSplits[["washpoNdgBNm"]],]
+raceTest[["washpoDgBNm"]] <- washpoDgBNm[-listSplits[["washpoNdgBNm"]],]
+
+fatalTrain <-
+    pmap(list(listFatalSamples, listFatalSplits), function(sample, indices) {
+        sample[indices,]})
+
+fatalTest <-
+    pmap(list(listFatalSamples, listFatalSplits), function(sample, indices) {
+        sample[-indices,]})
+
+######################################### Save Train/Test Splits for our data
+save(raceTrain, file = here("create_test_train", "output", "raceTrain.RData"))
+save(raceTest, file = here("create_test_train", "output", "raceTest.RData"))
+save(fatalTrain, file = here("create_test_train", "output", "fatalTrain.RData"))
+save(fatalTest, file = here("create_test_train", "output", "fatalTest.RData"))
