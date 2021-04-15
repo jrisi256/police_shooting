@@ -30,53 +30,20 @@ tasks <- pmap(list(totalSamples, names(totalSamples)), function(df, name) {
         makeClassifTask(data = df, target = "Fatal")
 })
 
-################################## Xgboost doesn't support factors
-totalSamplesXgboost <-
-    pmap(list(totalSamples, names(totalSamples)), function(df, name) {
-        if(str_detect(name, "washpo"))
-            df <- df %>% select(-race)
-        else if(str_detect(name, "vice"))
-            df <- df %>% select(-SubjectRace)
-        else if(str_detect(name, "fatal"))
-            df <- df %>% select(-Fatal)
-    }) %>%
-    map(createDummyFeatures)
-
-totalSamplesXgboost <-
-    pmap(list(totalSamplesXgboost, totalSamples, names(totalSamples)),
-         function(dfX, df, name) {
-             if(str_detect(name, "washpo"))
-                 dfX <- bind_cols(dfX, select(df, race)) 
-             else if(str_detect(name, "vice"))
-                 dfX <- bind_cols(dfX, select(df, SubjectRace))
-             else if(str_detect(name, "fatal"))
-                 dfX <- bind_cols(dfX, select(df, Fatal))
-            })
-
-tasksXgboost <- pmap(list(totalSamplesXgboost,
-                          names(totalSamplesXgboost)), function(df, name) {
-    if(str_detect(name, "washpo")) 
-        makeClassifTask(data = df, target = "race")
-    else if(str_detect(name, "vice"))
-        makeClassifTask(data = df, target = "SubjectRace")
-    else if(str_detect(name, "fatal"))
-        makeClassifTask(data = df, target = "Fatal")
-})
-
 # Create the learners
 svm <- makeLearner("classif.svm", predict.type = "prob")
 rf <- makeLearner("classif.randomForest", importance = T, predict.type = "prob")
 xgb <- makeLearner("classif.xgboost", predict.type = "prob")
 
 # Create cross-validation procedure - 5-fold cross validation, repeated 5 times
-kFold5Rep5 <- makeResampleDesc("RepCV", fold = 1, reps = 1)
-kFold5Rep5 <- makeResampleDesc("CV", iters = 2)
+kFoldTrees <- makeResampleDesc("RepCV", fold = 10, reps = 5)
+kFoldSvm <- makeResampleDesc("CV", iters = 10)
 
 # Explore 50 different combinations of hyperparameters for SVM
-randSearchSvm <- makeTuneControlRandom(maxit = 1)
+randSearchSvm <- makeTuneControlRandom(maxit = 60)
 
 # Explore 500 different combinations of hyperparameters for trees
-randSearchTrees <- makeTuneControlRandom(maxit = 1)
+randSearchTrees <- makeTuneControlRandom(maxit = 100)
 
 # Create the hyperparameter space for the support vector machine
 svmParamSpace <- makeParamSet(
@@ -112,14 +79,14 @@ parallelStartSocket(cpus = detectCores())
 tunedSvms <- map(tasks, function(task) {
     tuneParams(svm,
                task = task,
-               resampling = kFold5Rep5,
+               resampling = kFoldSvm,
                par.set = svmParamSpace,
                control = randSearchSvm,
                measures = list(acc, fpr, fnr))
 })
 
 parallelStop()
-proc.time() - ptm
+svmTime <- proc.time() - ptm
 
 ################### Tune our hyperparameters for the Random Forest
 ptm <- proc.time()
@@ -128,25 +95,30 @@ parallelStartSocket(cpus = detectCores())
 tunedRfs <- map(tasks, function(task) {
     tuneParams(rf,
                task = task,
-               resampling = kFold5Rep5,
+               resampling = kFoldTrees,
                par.set = rfParamSpace,
                control = randSearchTrees,
                measures = list(acc, fpr, fnr))
 })
 
 parallelStop()
-proc.time() - ptm
+rfTime <- proc.time() - ptm
 
 ################### Tune our hyperparameters for the Random Forest
 ptm <- proc.time()
 
-tunedXgbs <- map(tasksXgboost, function(task) {
+tunedXgbs <- map(tasks, function(task) {
     tuneParams(xgb,
                task = task,
-               resampling = kFold5Rep5,
+               resampling = kFoldTrees,
                par.set = xgbParamSpace,
                control = randSearchTrees,
                measures = list(acc, fpr, fnr))
 })
 
-proc.time() - ptm
+xgbTime <- proc.time() - ptm
+
+######################################### Save Best Hyperparameter Tunings
+save(tunedSvms, file = here("hyperparameter_tuning", "output", "tunedSvms.RData"))
+save(tunedRfs, file = here("hyperparameter_tuning", "output", "tunedRfs.RData"))
+save(tunedXgbs, file = here("hyperparameter_tuning", "output", "tunedXgbs.RData"))

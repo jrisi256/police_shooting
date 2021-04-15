@@ -1,3 +1,4 @@
+library(mlr)
 library(dplyr)
 
 StandardizeData <- function(df, name) {
@@ -25,6 +26,9 @@ StandardizeData <- function(df, name) {
                        month = as.factor(month),
                        day = as.factor(day))
         }
+        
+        dfDummy <- df %>% select(-race) %>% createDummyFeatures()
+        dfFinal <- bind_cols(dfDummy, select(df, race))
         
     ############ If the data frame we are dealing with comes from Vice
     } else if(str_detect(name, "vice|fatal")) {
@@ -63,7 +67,15 @@ StandardizeData <- function(df, name) {
                     mutate(fixedNrShots = as.numeric(fixedNrShots))
             }
         }
+        
+        if(str_detect(name, "fatal")) {
+            dfDummy <- df %>% select(-Fatal) %>% createDummyFeatures()
+            dfFinal <- bind_cols(dfDummy, select(df, Fatal))
+        } else {
+            dfDummy <- df %>% select(-SubjectRace) %>% createDummyFeatures()
+            dfFinal <- bind_cols(dfDummy, select(df, SubjectRace))
+        }
     }
     
-    return(df)
+    return(dfFinal)
 }
