@@ -12,14 +12,13 @@ library(randomForest)
 source(here("functions.R"))
 
 # Read in data
-load(here("hyperparameter_tuning", "data", "raceTrain.RData"))
-load(here("hyperparameter_tuning", "data", "fatalTrain.RData"))
+load(here("hyperparameter_tuning", "data", "raceTrainStd.RData"))
+load(here("hyperparameter_tuning", "data", "fatalTrainStd.RData"))
 
 # Select samples we need and create learning tasks
 raceSamples <- c("washpoNdgBNm", "washpoDgBNm", "viceNdgBNm", "viceDgBNm")
 fatalSamples <- c("fatalBNm")
-totalSamples <- as.list(c(raceTrain[raceSamples], fatalTrain[fatalSamples]))
-totalSamples <- pmap(list(totalSamples, names(totalSamples)), StandardizeData)
+totalSamples <- as.list(c(raceTrainStd[raceSamples], fatalTrainStd[fatalSamples]))
 
 tasks <- pmap(list(totalSamples, names(totalSamples)), function(df, name) {
     if(str_detect(name, "washpo")) 
@@ -67,7 +66,7 @@ xgbParamSpace <- makeParamSet(
     makeNumericParam("min_child_weight", lower = 1, upper = 10),
     makeNumericParam("subsample", lower = 0.5, upper = 1),
     makeNumericParam("colsample_bytree", lower = 0.5, upper = 1),
-    makeIntegerParam("nrounds", lower = 75, upper = 75))
+    makeIntegerParam("nrounds", lower = 200, upper = 200))
 
 ######################## Used for setting seeds in parallel computing contexts
 set.seed(420, kind = "L'Ecuyer-CMRG")

@@ -4,6 +4,9 @@ library(caret)
 library(purrr)
 library(readr)
 
+# Load in our functions to standardize data
+source(here("functions.R"))
+
 # Read in the data
 vice <- read_csv(here("create_test_train", "data", "vice-clean.csv"),
                  col_types = cols(NumberOfOfficers = "c"))
@@ -160,3 +163,41 @@ save(raceTrain, file = here("create_test_train", "output", "raceTrain.RData"))
 save(raceTest, file = here("create_test_train", "output", "raceTest.RData"))
 save(fatalTrain, file = here("create_test_train", "output", "fatalTrain.RData"))
 save(fatalTest, file = here("create_test_train", "output", "fatalTest.RData"))
+
+############################ Create train/test splits for standardized data too
+listSamplesStd <- pmap(list(listSamples, names(listSamples)), StandardizeData)
+listFatalSamplesStd <- pmap(list(listFatalSamples, names(listFatalSamples)),
+                            StandardizeData)
+
+raceTrainStd <-
+    pmap(list(listSamplesStd, listSplits), function(sample, indices) {
+        sample[indices,]})
+
+raceTestStd <-
+    pmap(list(listSamplesStd, listSplits), function(sample, indices) {
+        sample[-indices,]})
+
+# We can do this because they have the same number of observations
+raceTrainStd[["washpoDgBNm"]] <-
+    StandardizeData(washpoDgBNm, "washpoDgBNm")[listSplits[["washpoNdgBNm"]],]
+
+raceTestStd[["washpoDgBNm"]] <-
+    StandardizeData(washpoDgBNm, "washpoDgBNm")[-listSplits[["washpoNdgBNm"]],]
+
+fatalTrainStd <-
+    pmap(list(listFatalSamplesStd, listFatalSplits), function(sample, indices) {
+        sample[indices,]})
+
+fatalTestStd <-
+    pmap(list(listFatalSamplesStd, listFatalSplits), function(sample, indices) {
+        sample[-indices,]})
+
+############################ Save Standardized Train/Test Splits for our data
+save(raceTrainStd,
+     file = here("create_test_train", "output", "raceTrainStd.RData"))
+save(raceTestStd,
+     file = here("create_test_train", "output", "raceTestStd.RData"))
+save(fatalTrainStd,
+     file = here("create_test_train", "output", "fatalTrainStd.RData"))
+save(fatalTestStd,
+     file = here("create_test_train", "output", "fatalTestStd.RData"))

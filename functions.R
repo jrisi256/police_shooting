@@ -52,7 +52,7 @@ StandardizeData <- function(df, name) {
                    officerRaceO = as.numeric(officerRaceO))
         
         ################### If we are using date and geography
-        if(str_detect(name, "DgBNm|DgHNm|fatalBNm|fatalHNm")) {
+        if(str_detect(name, "Dg|fatal")) {
             df <-
                 df %>%
                 mutate(departmentFixed = as.factor(departmentFixed),
