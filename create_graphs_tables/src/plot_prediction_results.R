@@ -2,8 +2,10 @@ library(mlr)
 library(here)
 library(dplyr)
 library(tidyr)
+library(purrr)
 library(stringr)
 library(ggplot2)
+library(flextable)
 
 ##################################################### Load in predictions
 load(here("create_graphs_tables", "data", "svmPredictions.RData"))
@@ -53,7 +55,8 @@ performance <-
 ggplot(performance, aes(x = fpr, y = tpr)) +
     geom_line(aes(color = datePlace, group = datePlace)) +
     facet_wrap(~source+algo) +
-    theme_bw()
+    theme_bw() +
+    ggsave(here("create_graphs_tables", "output", "ROCCurves.png"))
 
 ########################################################## Find max accuracy
 maxAcc <-
@@ -103,6 +106,27 @@ ggplot(accuracy, aes(x = reorder(label, acc), y = acc)) +
     scale_y_continuous(breaks = seq(0, 1, 0.1)) +
     labs(x = "Sample + Algorithm",
          y = "Maximum Accuracy",
-         title = "Comparison of Accuracies Across the Different Samples") +
+         title = "Comparison of Accuracies Across Samples") +
     coord_flip() +
-    theme(axis.text.y = element_text(size = 7))
+    theme(axis.text.y = element_text(size = 7)) +
+    ggsave(here("create_graphs_tables", "output", "Accuracy.png"))
+
+############################################# Create table of results
+accuracyTables <-
+    accuracy %>%
+    arrange(source, desc(acc)) %>%
+    select(-name, -algo, -datePlace) %>%
+    group_by(source) %>%
+    group_split()
+
+names <- map_chr(accuracyTables,
+                 function(table) {table %>% select(source) %>% unique() %>% unlist()})
+names(accuracyTables) <- names
+
+pmap(list(accuracyTables, names(accuracyTables)), function(table, name) {
+    table %>%
+        flextable() %>%
+        save_as_docx(path = here("create_graphs_tables",
+                                 "output",
+                                 paste0(name, ".docx")))
+})

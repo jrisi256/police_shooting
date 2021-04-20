@@ -113,6 +113,7 @@ train_and_predict/output/xgbPredictions.RData: train_and_predict/src/train_predi
 # Sym link the trained models into the create graphs and figures so we can check the diagnostics and feature importance
 # Sym link the predictions
 # Sym link the test data to calculate naive accuracy
+# Sym link the train data to create descriptive tables
 create_graphs_tables/data/trainedRfs.RData: train_and_predict/output/trainedRfs.RData
 	cd create_graphs_tables/data && ln -s ../../train_and_predict/output/trainedRfs.RData trainedRfs.RData
 
@@ -137,4 +138,10 @@ create_graphs_tables/data/rfPredictions.RData: train_and_predict/output/rfPredic
 create_graphs_tables/data/xgbPredictions.RData: train_and_predict/output/xgbPredictions.RData
 	cd create_graphs_tables/data && ln -s ../../train_and_predict/output/xgbPredictions.RData xgbPredictions.RData
 
-################################################### create entry for creating tree diagnostic plots
+create_graphs_tables/data/raceTrain.RData: create_test_train/output/raceTrain.RData
+	cd create_graphs_tables/data && ln -s ../../create_test_train/output/raceTrain.RData
+
+create_graphs_tables/data/fatalTrain.RData: create_test_train/output/fatalTrain.RData
+	cd create_graphs_tables/data && ln -s ../../create_test_train/output/fatalTrain.RData
+
+################################################### create entry for creating plots and tables
